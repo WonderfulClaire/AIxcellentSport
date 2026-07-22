@@ -1,66 +1,90 @@
 # AIxcellentSport
 
+[![CI](https://github.com/WonderfulClaire/AIxcellentSport/actions/workflows/ci.yml/badge.svg)](https://github.com/WonderfulClaire/AIxcellentSport/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-55c8ff.svg)](LICENSE)
+[![Live demo](https://img.shields.io/badge/Live_demo-open-071521?logo=googlechrome&logoColor=white)](https://aixcellentsport.cocoa-moth-8728.chatgpt.site)
+
 ![AIxcellentSport social preview](./public/social-card.png)
 
-> Your form, understood. An open-source, on-device AI movement coach.
+> Your form, understood. 用浏览器摄像头获得实时、可解释的动作反馈。
 
-AIxcellentSport turns a laptop camera into a real-time training partner. It detects 33 body landmarks in the browser, measures joint angles, counts repetitions, and translates movement patterns into concise coaching cues.
+AIxcellentSport is a privacy-first AI movement coach that runs in the browser. It detects 33 body landmarks, measures joint geometry, counts repetitions, and turns movement patterns into concise coaching cues—without uploading raw camera frames.
 
-This repository is the software-first continuation of the original **Aixcellent Sports** intelligent visual sport evaluation concept. It keeps the earlier project's real-time correction, personalized guidance, and skeletal-motion visual identity, while making the first open-source version usable with an ordinary browser and camera.
+**[Try the live demo](https://aixcellentsport.cocoa-moth-8728.chatgpt.site)** · No account or paid API required. A desktop browser and camera work best.
 
-## Why this project
+## Why it exists
 
-Most fitness apps count time or reps. AIxcellentSport focuses on **how a movement is performed** while keeping raw video on the user's device.
+Most fitness apps measure duration or repetition count. AIxcellentSport explores a more useful question: **how was the movement performed?** The first release favors transparent geometry and state-machine rules over opaque scores, so contributors can inspect, test, and improve every cue.
 
-## Current MVP
+## Current capabilities
 
-- Real-time browser camera input
-- On-device pose detection with MediaPipe Pose Landmarker
-- Landmark and skeleton overlay
-- Exercise-specific rep counting for squats, push-ups, and jumping jacks
-- Joint-angle, symmetry, and movement-quality scoring
-- Coaching cues for knee valgus, body-line stability, and range of motion
-- Responsive Chinese product interface
+| Exercise | Rep detection | Current feedback signals |
+| --- | --- | --- |
+| Squat | Hip/knee movement phases | depth, knee tracking, trunk stability |
+| Push-up | Elbow movement phases | range of motion, body-line stability |
+| Jumping jack | Arm/leg open-close phases | coordination, range, completion |
+
+- Real-time MediaPipe Pose Landmarker inference
+- 33-point skeleton and landmark overlay
+- Joint-angle, symmetry, and movement-quality indicators
+- Local camera processing and responsive Chinese interface
+- Graceful camera/model error states
 
 ## Quick start
 
 Requirements: Node.js 22.13+
 
 ```bash
-npm install
+git clone https://github.com/WonderfulClaire/AIxcellentSport.git
+cd AIxcellentSport
+npm ci
 npm run dev
 ```
 
-Open the local URL, choose an exercise, and allow camera access. The model and WebAssembly runtime are loaded on first use.
+Then open the displayed local URL, select an exercise, and allow camera access. The MediaPipe model and WebAssembly runtime are downloaded on first use.
+
+```bash
+npm run check   # lint, production build, and product-contract tests
+```
 
 ## How it works
 
-1. MediaPipe identifies 33 normalized body landmarks from each camera frame.
-2. Exercise rules calculate joint angles and identify movement phases.
-3. A small state machine counts full repetitions and detects common compensation patterns.
-4. The UI renders feedback without uploading video frames to a server.
+```mermaid
+flowchart LR
+  A[Camera frame] --> B[MediaPipe: 33 landmarks]
+  B --> C[Joint geometry]
+  C --> D[Exercise state machine]
+  D --> E[Rep count + coaching cues]
+  B --> F[Canvas skeleton overlay]
+```
 
-The first version intentionally uses explainable geometric rules. A future classifier can learn temporal movement embeddings while keeping the current rules as interpretable safety checks.
+The MVP deliberately keeps exercise logic in an explainable rule layer. A future temporal model can improve robustness while retaining rule-based safety checks and visible evidence.
+
+See [Architecture](docs/ARCHITECTURE.md) for boundaries and extension points.
+
+## Privacy, safety, and evidence
+
+- Raw camera frames stay in the browser in this version.
+- The app does not require an account and does not persist video.
+- Feedback is general fitness education, not medical diagnosis.
+- Camera angle, occlusion, lighting, and individual anatomy affect results.
+- Accuracy claims must include a reproducible dataset, protocol, and report. Historical concept-deck figures are not current MVP evidence.
+
+Please report security or privacy concerns through [GitHub's private security advisory flow](SECURITY.md).
 
 ## Roadmap
 
-- [ ] Web Worker inference pipeline
-- [ ] More exercise profiles and side-view calibration
-- [ ] Session history and progress trends
-- [ ] User-calibrated range-of-motion targets
-- [ ] Temporal model for movement quality classification
-- [ ] Community exercise-rule SDK
-
-## Privacy and safety
-
-Camera frames are processed locally in the browser and are not uploaded by this project. Feedback is intended for general fitness education and is not a medical diagnosis or a substitute for a qualified coach or clinician.
-
-Published accuracy claims must be backed by a reproducible dataset, protocol, and evaluation report. Historical concept-deck metrics are not treated as current MVP results.
+- [ ] Move inference into a Web Worker
+- [ ] Add side-view calibration and more exercise profiles
+- [ ] Add local session history and progress trends
+- [ ] Support user-calibrated range-of-motion targets
+- [ ] Evaluate a temporal movement-quality classifier
+- [ ] Extract a community exercise-rule SDK
 
 ## Contributing
 
-Issues, exercise rules, accessibility improvements, and model optimizations are welcome. Please open an issue describing the movement, camera angle, expected signal, and a reproducible test case.
+Issues and pull requests are welcome. New exercises should specify the camera view, phase boundaries, repetition rule, feedback rule, and reproducible edge cases. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## License
 
-MIT
+[MIT](LICENSE)
