@@ -54,6 +54,8 @@
     "wrangler": "4.113.0"
   },
   "optionalDependencies": {
+    "@emnapi/core": "1.11.2",
+    "@emnapi/runtime": "1.11.2",
     "@tailwindcss/oxide-linux-x64-gnu": "4.2.1",
     "lightningcss-linux-x64-gnu": "1.31.1"
   },
