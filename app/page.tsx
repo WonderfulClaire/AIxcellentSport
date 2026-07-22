@@ -253,7 +253,7 @@ export default function Home() {
         <nav aria-label="主导航">
           <a href="#coach">实时教练</a>
           <a href="#how">技术原理</a>
-          <a href="https://github.com" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <a href="https://github.com/WonderfulClaire/AIxcellentSport" target="_blank" rel="noreferrer">GitHub ↗</a>
         </nav>
         <span className="privacy-pill"><i /> ON-DEVICE AI</span>
       </header>
