@@ -7,6 +7,7 @@ import {
   PoseLandmarker,
   type NormalizedLandmark,
 } from "@mediapipe/tasks-vision";
+import { CoachAgent, AgentMemory, loadAgentConfig } from "./agent/index.js";
 
 type Exercise = "squat" | "pushup" | "jack";
 type ModelState = "idle" | "loading" | "ready" | "error";
@@ -49,6 +50,8 @@ export default function Home() {
   const predictRef = useRef<() => void>(() => undefined);
   const lastVideoTimeRef = useRef(-1);
   const phaseRef = useRef<"up" | "down">("up");
+  const repCountRef = useRef(0);
+  const agentRef = useRef<CoachAgent | null>(null);
 
   const [exercise, setExercise] = useState<Exercise>("squat");
   const [modelState, setModelState] = useState<ModelState>("idle");
@@ -59,6 +62,7 @@ export default function Home() {
   const [fps, setFps] = useState(0);
   const [feedback, setFeedback] = useState("准备好后，退后两步并让全身进入画面");
   const [feedbackTone, setFeedbackTone] = useState<"good" | "warn">("good");
+  const [agentFocus, setAgentFocus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const lastFpsTime = useRef(0);
   const frameCount = useRef(0);
@@ -80,6 +84,42 @@ export default function Home() {
     };
   }, [stopTraining]);
 
+  // 初始化教练智能体（记忆 + 可选 LLM 配置，均未配置密钥时走启发式兜底）
+  useEffect(() => {
+    agentRef.current = new CoachAgent({
+      memory: new AgentMemory(),
+      config: loadAgentConfig(),
+    });
+  }, []);
+
+  // 一次动作完成后，把指标交给教练智能体，获取自适应反馈（记忆/规划/工具）
+  const triggerAgent = useCallback(
+    (metric: {
+      exercise: Exercise;
+      repIndex: number;
+      score: number;
+      jointAngle: number;
+      symmetryError?: number;
+      kneeGap?: number;
+      ankleGap?: number;
+      bodyLine?: number;
+    }) => {
+      const agent = agentRef.current;
+      if (!agent) return;
+      agent
+        .getCoaching(metric)
+        .then((res) => {
+          setFeedback(res.message);
+          setFeedbackTone(res.tone);
+          if (res.focusArea) setAgentFocus(res.focusArea);
+        })
+        .catch(() => {
+          /* 智能体异常时保留原有实时反馈，保证不中断训练 */
+        });
+    },
+    [],
+  );
+
   const analyzePose = useCallback(
     (landmarks: NormalizedLandmark[]) => {
       if (exercise === "squat") {
@@ -100,9 +140,17 @@ export default function Home() {
           setFeedbackTone("good");
         } else if (kneeAngle > 158 && phaseRef.current === "down") {
           phaseRef.current = "up";
-          setReps((value) => value + 1);
-          setFeedback("完成一次，节奏很稳");
-          setFeedbackTone("good");
+          repCountRef.current += 1;
+          setReps(repCountRef.current);
+          triggerAgent({
+            exercise: "squat",
+            repIndex: repCountRef.current,
+            score: Math.round(clamp(100 - symmetryPenalty - valgusPenalty)),
+            jointAngle: Math.round(kneeAngle),
+            symmetryError: Math.abs(left - right),
+            kneeGap,
+            ankleGap,
+          });
         } else if (valgusPenalty) {
           setFeedback("膝盖有内扣趋势，尝试朝脚尖方向打开");
           setFeedbackTone("warn");
@@ -120,7 +168,15 @@ export default function Home() {
         if (elbow < 88 && phaseRef.current === "up") phaseRef.current = "down";
         if (elbow > 158 && phaseRef.current === "down") {
           phaseRef.current = "up";
-          setReps((value) => value + 1);
+          repCountRef.current += 1;
+          setReps(repCountRef.current);
+          triggerAgent({
+            exercise: "pushup",
+            repIndex: repCountRef.current,
+            score: Math.round(clamp(100 - Math.abs(175 - bodyLine) * 1.4)),
+            jointAngle: Math.round(elbow),
+            bodyLine,
+          });
         }
         if (bodyLine < 158) {
           setFeedback("髋部略低，收紧核心并保持肩髋踝成一线");
@@ -140,13 +196,20 @@ export default function Home() {
         if (open && phaseRef.current === "up") phaseRef.current = "down";
         if (!open && phaseRef.current === "down") {
           phaseRef.current = "up";
-          setReps((value) => value + 1);
+          repCountRef.current += 1;
+          setReps(repCountRef.current);
+          triggerAgent({
+            exercise: "jack",
+            repIndex: repCountRef.current,
+            score: open ? 96 : 86,
+            jointAngle: Math.round(Math.abs(landmarks[15].x - landmarks[16].x) * 180),
+          });
         }
         setFeedback(open ? "幅度到位，落地时保持膝盖柔软" : "双手举过头顶，脚步再打开一些");
         setFeedbackTone(open ? "good" : "warn");
       }
     },
-    [exercise],
+    [exercise, triggerAgent],
   );
 
   const predict = useCallback(() => {
@@ -224,6 +287,7 @@ export default function Home() {
       }
       setModelState("ready");
       setIsTraining(true);
+      repCountRef.current = 0;
       lastFpsTime.current = performance.now();
       frameCount.current = 0;
       frameRef.current = requestAnimationFrame(() => predictRef.current());
@@ -239,7 +303,9 @@ export default function Home() {
     setExercise(next);
     setReps(0);
     setScore(92);
+    repCountRef.current = 0;
     phaseRef.current = "up";
+    setAgentFocus(null);
     setFeedback("已切换动作，让全身进入画面后开始训练");
   };
 
@@ -256,6 +322,7 @@ export default function Home() {
           <a href="https://github.com/WonderfulClaire/AIxcellentSport" target="_blank" rel="noreferrer">GitHub ↗</a>
         </nav>
         <span className="privacy-pill"><i /> ON-DEVICE AI</span>
+        <span className="privacy-pill"><i /> AGENTIC COACH</span>
       </header>
 
       <section className="hero" id="top">
@@ -337,6 +404,12 @@ export default function Home() {
               <div><small>AI COACH</small><p>{feedback}</p></div>
             </div>
             {errorMessage && <p className="error-message">{errorMessage}</p>}
+            {agentFocus && (
+              <div className="agent-focus">
+                <span>🤖 Agent 重点</span>
+                <strong>{agentFocus}</strong>
+              </div>
+            )}
             {isTraining && <button className="stop-button" onClick={stopTraining}>结束本次训练</button>}
           </aside>
         </div>
