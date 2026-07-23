@@ -27,7 +27,6 @@ Most fitness apps measure duration or repetition count. AIxcellentSport explores
 - Real-time MediaPipe Pose Landmarker inference
 - 33-point skeleton and landmark overlay
 - Joint-angle, symmetry, and movement-quality indicators
-- **Agentic coaching layer** (`app/agent`): an on-device coach agent with memory, tool use, and planning that adapts feedback across reps and sessions. Runs fully offline (deterministic heuristic) and upgrades to an LLM when a key is configured.
 - Local camera processing and responsive Chinese interface
 - Graceful camera/model error states
 
@@ -60,25 +59,6 @@ flowchart LR
 ```
 
 The MVP deliberately keeps exercise logic in an explainable rule layer. A future temporal model can improve robustness while retaining rule-based safety checks and visible evidence.
-
-## Agentic coaching layer
-
-AIxcellentSport ships an on-device **coach agent** (`app/agent/`) that turns the per-rep metrics into adaptive, memory-aware feedback — the app is not just a detector, it is an agent.
-
-```mermaid
-flowchart LR
-  A[Rep completed] --> B[FormAnalyzer: assess_form]
-  B --> C[CoachAgent: remember + plan]
-  C --> D[(AgentMemory: localStorage)]
-  C --> E[Feedback: heuristic or LLM]
-  C --> F[ProgressTracker + PlanGenerator]
-```
-
-- **Memory**: `AgentMemory` stores only structured metrics (never video) and surfaces *recurring issues* to set the session focus.
-- **Tools**: `assess_form`, `log_rep`, `get_recurring_issues`, `set_goal` — callable by the agent and by LLM function-calling.
-- **Planning**: the coach agent decides what to emphasize based on history, then produces the cue.
-- **Multi-agent**: `runMultiAgent` orchestrates FormAnalyzer, ProgressTracker, and PlanGenerator for a structured training report.
-- **LLM-optional**: the LLM call is OpenAI-compatible (set `window.__AGENT_CONFIG__` with `baseUrl`/`apiKey`/`model`). With no key, a deterministic heuristic runs — so the demo works with zero configuration and never breaks.
 
 See [Architecture](docs/ARCHITECTURE.md) for boundaries and extension points.
 
